@@ -25,15 +25,21 @@ const App = () => {
     setIsLoading(true);
     setErrorMessage("");
     try {
+      if (!API_KEY) {
+        setErrorMessage("TMDB API key is missing. Please define VITE_TMDB_API_KEY in your .env file.");
+        setMoviesList([]);
+        return;
+      }
       const endPoint = query
         ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}`
         : `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
       const response = await fetch(endPoint, API_OPTIONS);
       if (!response.ok) {
-        throw new Error("Failed to fetch movies");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.status_message || `Failed to fetch movies (Status: ${response.status})`);
       }
       const data = await response.json();
-      if (data.results.length === 0) {
+      if (!data.results || data.results.length === 0) {
         setErrorMessage("No movies found for the given search term.");
         setMoviesList([]);
         return;
@@ -41,7 +47,7 @@ const App = () => {
       setMoviesList(data.results || []);
     } catch (error) {
       console.error("Error fetching movies:", error);
-      setErrorMessage("Failed to fetch movies. Please try again later.");
+      setErrorMessage(error.message || "Failed to fetch movies. Please try again later.");
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +72,16 @@ const App = () => {
           {isLoading ? (
             <Loader />
           ) : errorMessage ? (
-            <p className="text-red-500">{errorMessage}</p>
+            <div className="flex flex-col items-center gap-3 py-6">
+              <p className="text-red-500 text-center text-lg">{errorMessage}</p>
+              <button
+                type="button"
+                onClick={() => fetchMovies(debouncedSearchTerm)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-5 rounded-lg cursor-pointer transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
           ) : (
             <ul>
               {moviesList.map((movie) => (
